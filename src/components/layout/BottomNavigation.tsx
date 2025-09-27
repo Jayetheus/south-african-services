@@ -1,69 +1,47 @@
 import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, Search, MessageSquare, User } from 'lucide-react';
+import { useLocation, Link } from 'react-router-dom';
+import { Home, Search, MessageSquare, User, Bell, BookOpen, Calculator, DollarSign, PiggyBank, Crown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const navigationItems = [
-  {
-    id: 'dashboard',
-    label: 'Home',
-    icon: Home,
-    path: '/dashboard',
-  },
-  {
-    id: 'services',
-    label: 'Services',
-    icon: Search,
-    path: '/services',
-  },
-  {
-    id: 'requests',
-    label: 'Requests',
-    icon: MessageSquare,
-    path: '/requests',
-  },
-  {
-    id: 'profile',
-    label: 'Profile',
-    icon: User,
-    path: '/profile',
-  },
-];
 
 const BottomNavigation: React.FC = () => {
   const location = useLocation();
-  const navigate = useNavigate();
+
+  const navItems = [
+    { icon: Home, label: 'Home', path: '/dashboard' },
+    { icon: Search, label: 'Services', path: '/services' },
+    { icon: MessageSquare, label: 'Requests', path: '/requests' },
+    { icon: Bell, label: 'Alerts', path: '/notifications' },
+    { icon: User, label: 'Profile', path: '/profile' },
+  ];
+
+  // Additional features accessible from profile or main menu
+  const additionalFeatures = [
+    { icon: BookOpen, label: 'Learning', path: '/learning' },
+    { icon: Calculator, label: 'Bookkeeping', path: '/bookkeeping' },
+    { icon: DollarSign, label: 'Pricing', path: '/pricing' },
+    { icon: PiggyBank, label: 'Savings', path: '/savings' },
+    { icon: Crown, label: 'Prime', path: '/prime' },
+  ];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50">
-      <div className="flex items-center justify-around h-16 px-2">
-        {navigationItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = location.pathname === item.path || 
-                          (item.path === '/dashboard' && location.pathname === '/');
-
+      <div className="flex items-center justify-around h-16 max-w-md mx-auto px-4">
+        {navItems.map(({ icon: Icon, label, path }) => {
+          const isActive = location.pathname === path;
           return (
-            <button
-              key={item.id}
-              onClick={() => navigate(item.path)}
+            <Link
+              key={path}
+              to={path}
               className={cn(
-                "flex flex-col items-center justify-center min-w-[60px] py-1 px-2 rounded-lg transition-all duration-200",
-                isActive
-                  ? "text-primary bg-primary/10"
+                "flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-colors min-w-0 flex-1",
+                isActive 
+                  ? "text-primary bg-primary/10" 
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               )}
             >
-              <Icon className={cn(
-                "h-5 w-5 mb-1",
-                isActive && "text-primary"
-              )} />
-              <span className={cn(
-                "text-xs font-medium",
-                isActive && "text-primary"
-              )}>
-                {item.label}
-              </span>
-            </button>
+              <Icon size={20} />
+              <span className="text-xs font-medium truncate">{label}</span>
+            </Link>
           );
         })}
       </div>

@@ -1,274 +1,475 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   User, 
   Mail, 
   Phone, 
   MapPin, 
-  Star, 
-  Calendar, 
-  Edit2, 
+  Shield, 
+  Edit, 
+  Save, 
+  X,
+  Settings,
+  Bell,
+  HelpCircle,
   LogOut,
-  Shield,
-  Settings
+  Star,
+  Calendar,
+  TrendingUp,
+  CheckCircle,
+  Clock,
+  AlertTriangle,
+  BookOpen,
+  Calculator,
+  DollarSign,
+  PiggyBank,
+  Crown
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { apiService } from '@/services/api';
-import { useToast } from '@/hooks/use-toast';
 import BottomNavigation from '@/components/layout/BottomNavigation';
+import { useToast } from '@/hooks/use-toast';
+import { apiClient } from '@/lib/api';
 
 const Profile: React.FC = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('profile');
+  
+  const [profileData, setProfileData] = useState({
     name: user?.name || '',
+    email: user?.email || '',
     phone: user?.phone || '',
     location: user?.location || '',
+    bio: '',
+    avatar: user?.avatar_url || ''
   });
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
+  const [verificationStatus, setVerificationStatus] = useState({
+    isVerified: user?.is_verified || false,
+    status: 'pending' as 'pending' | 'approved' | 'rejected',
+    submittedAt: '',
+    reviewedAt: ''
+  });
+
+  const [stats, setStats] = useState({
+    totalServices: 0,
+    completedJobs: 0,
+    averageRating: 0,
+    totalEarnings: 0
+  });
+
+  // Load profile data
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        setIsLoading(true);
+        const response = await apiClient.getProfile();
+        
+        if (response.success && response.data) {
+          const userData = response.data;
+          setProfileData({
+            name: userData.name,
+            email: userData.email,
+            phone: userData.phone || '',
+            location: userData.location || '',
+            bio: userData.bio || '',
+            avatar: userData.avatar_url || ''
+          });
+          
+          setVerificationStatus({
+            isVerified: userData.is_verified || false,
+            status: userData.verification_status || 'pending',
+            submittedAt: userData.verification_submitted_at || '',
+            reviewedAt: userData.verification_reviewed_at || ''
+          });
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+        toast({
+          title: 'Error loading profile',
+          description: 'Failed to load profile data. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, [toast]);
 
   const handleSaveProfile = async () => {
     try {
-      setLoading(true);
-      await apiService.updateProfile(formData);
-      setIsEditing(false);
-      toast({
-        title: 'Success',
-        description: 'Profile updated successfully',
-      });
+      setIsLoading(true);
+      
+      const response = await apiClient.updateProfile(profileData);
+      
+      if (response.success) {
+        toast({
+          title: 'Profile updated',
+          description: 'Your profile has been updated successfully.',
+        });
+        setIsEditing(false);
+      }
     } catch (error) {
+      console.error('Error updating profile:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to update profile',
+        title: 'Error updating profile',
+        description: 'Failed to update profile. Please try again.',
         variant: 'destructive',
       });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    toast({
-      title: 'Logged out',
-      description: 'You have been successfully logged out',
-    });
+  const handleInputChange = (field: string, value: string) => {
+    setProfileData(prev => ({ ...prev, [field]: value }));
   };
 
-  const getRoleBadgeVariant = (role: string) => {
-    return role === 'provider' ? 'default' : 'secondary';
+  const getVerificationStatusIcon = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return <CheckCircle size={16} className="text-green-500" />;
+      case 'rejected':
+        return <AlertTriangle size={16} className="text-red-500" />;
+      case 'pending':
+        return <Clock size={16} className="text-yellow-500" />;
+      default:
+        return <Clock size={16} className="text-gray-500" />;
+    }
   };
 
-  const getUserInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+  const getVerificationStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return 'bg-green-100 text-green-700 border-green-200';
+      case 'rejected':
+        return 'bg-red-100 text-red-700 border-red-200';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+      default:
+        return 'bg-gray-100 text-gray-700 border-gray-200';
+    }
+  };
+
+  const formatStatus = (status: string) => {
+    return status.charAt(0).toUpperCase() + status.slice(1);
   };
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <div className="container mx-auto px-4 py-6 max-w-md">
-        {/* Profile Header */}
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            <div className="flex flex-col items-center text-center mb-6">
-              <Avatar className="w-20 h-20 mb-4">
-                <AvatarImage src={user?.avatar_url} alt={user?.name} />
-                <AvatarFallback className="text-lg">
-                  {user?.name ? getUserInitials(user.name) : 'U'}
-                </AvatarFallback>
-              </Avatar>
-              
-              <div className="flex items-center gap-2 mb-2">
-                <h1 className="text-xl font-bold">{user?.name}</h1>
-                <Badge variant={getRoleBadgeVariant(user?.role || 'customer')}>
-                  {user?.role}
-                </Badge>
-              </div>
-              
-              {user?.rating && user.rating > 0 && (
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <Star className="h-4 w-4 fill-current text-yellow-400" />
-                  <span>{user.rating.toFixed(1)} rating</span>
-                </div>
-              )}
-              
-              <p className="text-sm text-muted-foreground mt-1">
-                Member since {new Date(user?.created_at || '').toLocaleDateString()}
-              </p>
-            </div>
-
+      {/* Header */}
+      <div className="bg-gradient-primary text-white p-4 pb-6">
+        <div className="container mx-auto max-w-md">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-bold">Profile</h1>
             <Button
-              variant="outline"
+              variant="ghost"
+              size="sm"
               onClick={() => setIsEditing(!isEditing)}
-              className="w-full gap-2"
+              className="text-white hover:bg-white/20"
             >
-              <Edit2 className="h-4 w-4" />
-              {isEditing ? 'Cancel Edit' : 'Edit Profile'}
+              {isEditing ? <X size={20} /> : <Edit size={20} />}
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+          
+          {/* Profile Summary */}
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+              <User size={24} />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold">{user?.name}</h2>
+              <p className="text-white/90 text-sm">{user?.email}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge className={`text-xs ${getVerificationStatusColor(verificationStatus.status)}`}>
+                  {getVerificationStatusIcon(verificationStatus.status)}
+                  <span className="ml-1">{formatStatus(verificationStatus.status)}</span>
+                </Badge>
+                {user?.role === 'provider' && (
+                  <Badge variant="outline" className="text-xs text-white/90 border-white/30">
+                    Provider
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 py-6 max-w-md space-y-6">
+        {/* Verification Status Card */}
+        {user?.role === 'provider' && (
+          <Card className="border-0 bg-card/50">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Shield size={20} />
+                Verification Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">Status</span>
+                  <Badge className={`text-xs ${getVerificationStatusColor(verificationStatus.status)}`}>
+                    {getVerificationStatusIcon(verificationStatus.status)}
+                    <span className="ml-1">{formatStatus(verificationStatus.status)}</span>
+                  </Badge>
+                </div>
+                
+                {verificationStatus.status === 'pending' && (
+                  <p className="text-sm text-muted-foreground">
+                    Your verification is under review. This usually takes 1-2 business days.
+                  </p>
+                )}
+                
+                {verificationStatus.status === 'rejected' && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-700">
+                      Your verification was rejected. Please check the requirements and resubmit.
+                    </p>
+                  </div>
+                )}
+                
+                {verificationStatus.status === 'approved' && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-sm text-green-700">
+                      Your account is verified! You can now offer services to customers.
+                    </p>
+                  </div>
+                )}
+                
+                {verificationStatus.status !== 'approved' && (
+                  <Button
+                    onClick={() => window.location.href = '/verification'}
+                    className="w-full bg-gradient-primary"
+                  >
+                    <Shield size={16} className="mr-2" />
+                    {verificationStatus.status === 'rejected' ? 'Resubmit Verification' : 'Complete Verification'}
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Profile Information */}
-        <Card className="mb-6">
+        <Card className="border-0 bg-card/50">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Profile Information
-            </CardTitle>
+            <CardTitle className="text-lg">Profile Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {isEditing ? (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
-                    placeholder="Enter your full name"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange('phone', e.target.value)}
-                    placeholder="Enter your phone number"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Input
-                    id="location"
-                    value={formData.location}
-                    onChange={(e) => handleInputChange('location', e.target.value)}
-                    placeholder="Enter your location"
-                  />
-                </div>
-                
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="name"
+                value={profileData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                disabled={!isEditing}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                value={profileData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                disabled={!isEditing}
+                type="email"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                value={profileData.phone}
+                onChange={(e) => handleInputChange('phone', e.target.value)}
+                disabled={!isEditing}
+                placeholder="+27 82 123 4567"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                value={profileData.location}
+                onChange={(e) => handleInputChange('location', e.target.value)}
+                disabled={!isEditing}
+                placeholder="Cape Town, Western Cape"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="bio">Bio</Label>
+              <Textarea
+                id="bio"
+                value={profileData.bio}
+                onChange={(e) => handleInputChange('bio', e.target.value)}
+                disabled={!isEditing}
+                placeholder="Tell us about yourself..."
+                rows={3}
+              />
+            </div>
+
+            {isEditing && (
+              <div className="flex gap-2 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditing(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
                 <Button
                   onClick={handleSaveProfile}
-                  disabled={loading}
-                  className="w-full"
+                  disabled={isLoading}
+                  className="flex-1 bg-gradient-primary"
                 >
-                  {loading ? 'Saving...' : 'Save Changes'}
+                  {isLoading ? (
+                    <>
+                      <Loader2 size={16} className="mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={16} className="mr-2" />
+                      Save Changes
+                    </>
+                  )}
                 </Button>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-3 text-sm">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span>{user?.email}</span>
-                </div>
-                
-                {user?.phone && (
-                  <div className="flex items-center gap-3 text-sm">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span>{user.phone}</span>
-                  </div>
-                )}
-                
-                {user?.location && (
-                  <div className="flex items-center gap-3 text-sm">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <span>{user.location}</span>
-                  </div>
-                )}
-                
-                <div className="flex items-center gap-3 text-sm">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span>Joined {new Date(user?.created_at || '').toLocaleDateString()}</span>
-                </div>
-              </>
+              </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Account Status */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              Account Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between py-2">
-              <span className="text-sm">Email Verified</span>
-              <Badge variant={user?.is_verified ? 'default' : 'outline'}>
-                {user?.is_verified ? 'Verified' : 'Not Verified'}
-              </Badge>
-            </div>
-            <Separator className="my-2" />
-            <div className="flex items-center justify-between py-2">
-              <span className="text-sm">Account Status</span>
-              <Badge variant={user?.is_active ? 'default' : 'destructive'}>
-                {user?.is_active ? 'Active' : 'Inactive'}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Provider Stats */}
+        {user?.role === 'provider' && (
+          <Card className="border-0 bg-card/50">
+            <CardHeader>
+              <CardTitle className="text-lg">Your Statistics</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-3 bg-muted/30 rounded-lg">
+                  <TrendingUp size={20} className="mx-auto mb-2 text-primary" />
+                  <div className="text-lg font-bold">{stats.totalServices}</div>
+                  <div className="text-xs text-muted-foreground">Services</div>
+                </div>
+                <div className="text-center p-3 bg-muted/30 rounded-lg">
+                  <CheckCircle size={20} className="mx-auto mb-2 text-green-500" />
+                  <div className="text-lg font-bold">{stats.completedJobs}</div>
+                  <div className="text-xs text-muted-foreground">Completed</div>
+                </div>
+                <div className="text-center p-3 bg-muted/30 rounded-lg">
+                  <Star size={20} className="mx-auto mb-2 text-yellow-500" />
+                  <div className="text-lg font-bold">{stats.averageRating}</div>
+                  <div className="text-xs text-muted-foreground">Rating</div>
+                </div>
+                <div className="text-center p-3 bg-muted/30 rounded-lg">
+                  <Calendar size={20} className="mx-auto mb-2 text-blue-500" />
+                  <div className="text-lg font-bold">R{stats.totalEarnings}</div>
+                  <div className="text-xs text-muted-foreground">Earnings</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Quick Actions */}
-        <Card className="mb-6">
+        {/* Business Tools */}
+        <Card className="border-0 bg-card/50">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              Quick Actions
-            </CardTitle>
+            <CardTitle className="text-lg">Business Tools</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <Button variant="outline" className="w-full justify-start gap-2">
-              <Shield className="h-4 w-4" />
-              Privacy Settings
-            </Button>
-            
-            <Button variant="outline" className="w-full justify-start gap-2">
-              <Star className="h-4 w-4" />
-              My Reviews
-            </Button>
-            
-            {user?.role === 'provider' && (
-              <Button variant="outline" className="w-full justify-start gap-2">
-                <User className="h-4 w-4" />
-                My Services
-              </Button>
-            )}
-            
-            <Separator />
-            
-            <Button
-              variant="destructive"
-              onClick={handleLogout}
-              className="w-full justify-start gap-2"
+          <CardContent className="space-y-2">
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start"
+              onClick={() => window.location.href = '/learning'}
             >
-              <LogOut className="h-4 w-4" />
-              Logout
+              <BookOpen size={16} className="mr-3" />
+              Learning Hub
+            </Button>
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start"
+              onClick={() => window.location.href = '/bookkeeping'}
+            >
+              <Calculator size={16} className="mr-3" />
+              Bookkeeping
+            </Button>
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start"
+              onClick={() => window.location.href = '/pricing'}
+            >
+              <DollarSign size={16} className="mr-3" />
+              Pricing Tools
+            </Button>
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start"
+              onClick={() => window.location.href = '/savings'}
+            >
+              <PiggyBank size={16} className="mr-3" />
+              Savings & Credit
+            </Button>
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start"
+              onClick={() => window.location.href = '/prime'}
+            >
+              <Crown size={16} className="mr-3" />
+              Prime Features
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Settings */}
+        <Card className="border-0 bg-card/50">
+          <CardHeader>
+            <CardTitle className="text-lg">Settings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start"
+              onClick={() => window.location.href = '/notifications'}
+            >
+              <Bell size={16} className="mr-3" />
+              Notifications
+            </Button>
+            <Button variant="ghost" className="w-full justify-start">
+              <Settings size={16} className="mr-3" />
+              Preferences
+            </Button>
+            <Button variant="ghost" className="w-full justify-start">
+              <HelpCircle size={16} className="mr-3" />
+              Help & Support
+            </Button>
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+              onClick={logout}
+            >
+              <LogOut size={16} className="mr-3" />
+              Sign Out
             </Button>
           </CardContent>
         </Card>
       </div>
+
       <BottomNavigation />
     </div>
   );

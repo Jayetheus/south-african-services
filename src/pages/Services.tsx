@@ -1,218 +1,392 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Filter, Star, MapPin, Plus } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { apiService, Service, Category } from '@/services/api';
-import { useToast } from '@/hooks/use-toast';
+import { Search, Filter, SlidersHorizontal, AlertTriangle, Loader2 } from 'lucide-react';
 import BottomNavigation from '@/components/layout/BottomNavigation';
+import ServiceCategories from '@/components/services/ServiceCategories';
+import ServiceCard from '@/components/services/ServiceCard';
+import { Service, ServiceCategory } from '@/types/service';
+import { searchQuerySchema, searchRateLimiter, SecurityUtils, sanitizeText } from '@/lib/security';
+import { useToast } from '@/hooks/use-toast';
+import { apiClient } from '@/lib/api';
+
+// Helper function to convert API service to legacy format for ServiceCard compatibility
+const convertServiceToLegacy = (service: Service): any => ({
+  id: service.id,
+  title: service.title,
+  description: service.description,
+  category: service.category.name,
+  providerId: service.provider.id,
+  providerName: service.provider.name,
+  providerImage: service.provider.avatar_url,
+  price: service.price,
+  priceType: service.price_type === 'hourly' ? 'hourly' : service.price_type === 'fixed' ? 'fixed' : 'per_item',
+  rating: service.rating,
+  reviewCount: service.review_count,
+  location: service.location,
+  images: service.images,
+  availability: service.is_active ? 'available' : 'unavailable',
+  responseTime: '2 hours', // Default response time
+  verified: service.provider.is_verified,
+  tags: [], // No tags in new API
+  createdAt: service.created_at
+});
 
 const Services: React.FC = () => {
-  const { user } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
-  const [services, setServices] = useState<Service[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [sortBy, setSortBy] = useState('rating');
   const [showFilters, setShowFilters] = useState(false);
+  const [services, setServices] = useState<Service[]>([]);
+  const [categories, setCategories] = useState<ServiceCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchError, setSearchError] = useState<string>('');
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    pages: 0
+  });
 
+  // Load services and categories on component mount
   useEffect(() => {
-    loadData();
-  }, [selectedCategory, searchTerm]);
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Load services and categories in parallel
+        const [servicesResponse, categoriesResponse] = await Promise.all([
+          apiClient.getServices({ page: 1, limit: 20 }),
+          apiClient.getCategories()
+        ]);
 
-  const loadData = async () => {
+        if (servicesResponse.success && servicesResponse.data) {
+          setServices(servicesResponse.data.data);
+          setPagination(servicesResponse.data.pagination);
+        }
+
+        if (categoriesResponse.success && categoriesResponse.data) {
+          setCategories(categoriesResponse.data);
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+        toast({
+          title: 'Error loading services',
+          description: 'Failed to load services. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [toast]);
+
+  // Load services with filters
+  const loadServices = useCallback(async (filters: {
+    search?: string;
+    category?: string;
+    page?: number;
+    sortBy?: string;
+  } = {}) => {
     try {
-      setLoading(true);
-      const [servicesData, categoriesData] = await Promise.all([
-        apiService.getServices({
-          category: selectedCategory || undefined,
-          search: searchTerm || undefined,
-        }),
-        apiService.getCategories(),
-      ]);
-      setServices(servicesData.services);
-      setCategories(categoriesData);
+      setIsLoading(true);
+      
+      const params: any = {
+        page: filters.page || 1,
+        limit: 20
+      };
+
+      if (filters.search) {
+        params.search = filters.search;
+      }
+
+      if (filters.category) {
+        params.category = filters.category;
+      }
+
+      const response = await apiClient.getServices(params);
+
+      if (response.success && response.data) {
+        setServices(response.data.data);
+        setPagination(response.data.pagination);
+      }
     } catch (error) {
+      console.error('Error loading services:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load services',
+        title: 'Error loading services',
+        description: 'Failed to load services. Please try again.',
         variant: 'destructive',
       });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  };
+  }, [toast]);
 
-  const handleSearch = (value: string) => {
-    setSearchTerm(value);
-  };
+  // Secure search with rate limiting and validation
+  const handleSearch = useCallback((query: string) => {
+    // Reset previous errors
+    setSearchError('');
 
-  const handleCategoryFilter = (categoryId: string) => {
-    setSelectedCategory(categoryId === selectedCategory ? '' : categoryId);
-  };
-
-  const handleRequestService = async (serviceId: string) => {
-    try {
-      // For now, just show a toast. In a full implementation, 
-      // this would open a request modal
+    // Check rate limiting
+    if (!searchRateLimiter.isAllowed('search')) {
+      const timeRemaining = searchRateLimiter.getBlockedTimeRemaining('search');
+      setSearchError(`Too many searches. Please try again in ${timeRemaining} minutes.`);
+      
       toast({
-        title: 'Request Service',
-        description: 'Service request feature will be implemented',
+        title: 'Search limit exceeded',
+        description: `Please try again in ${timeRemaining} minutes.`,
+        variant: 'destructive',
+      });
+      
+      SecurityUtils.logSecurityEvent('SEARCH_RATE_LIMIT_EXCEEDED', {
+        query: query.slice(0, 50), // Only log first 50 chars
+        timeRemaining
+      });
+      return;
+    }
+
+    // Validate search query
+    try {
+      const validatedQuery = searchQuerySchema.parse(query);
+      const sanitizedQuery = sanitizeText(validatedQuery);
+      
+      setSearchTerm(sanitizedQuery);
+      
+      // Load services with search term
+      loadServices({ 
+        search: sanitizedQuery, 
+        category: selectedCategory 
+      });
+      
+      SecurityUtils.logSecurityEvent('SEARCH_PERFORMED', {
+        query: sanitizedQuery.slice(0, 50),
+        category: selectedCategory
       });
     } catch (error) {
+      setSearchError('Invalid search query');
+      
+      SecurityUtils.logSecurityEvent('SEARCH_VALIDATION_ERROR', {
+        query: query.slice(0, 50),
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      
       toast({
-        title: 'Error',
-        description: 'Failed to create request',
+        title: 'Invalid search',
+        description: 'Please enter a valid search query.',
         variant: 'destructive',
       });
     }
-  };
+  }, [selectedCategory, toast, loadServices]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background pb-20">
-        <div className="container mx-auto px-4 py-6 max-w-md">
-          <div className="animate-pulse space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-32 bg-muted rounded-lg" />
-            ))}
-          </div>
-        </div>
-        <BottomNavigation />
-      </div>
-    );
-  }
+  // Debounced search handler
+  const handleSearchInput = useCallback((value: string) => {
+    if (value.length === 0) {
+      setSearchTerm('');
+      setSearchError('');
+      loadServices({ category: selectedCategory });
+      return;
+    }
+    
+    if (value.length >= 2) {
+      handleSearch(value);
+    }
+  }, [handleSearch, loadServices, selectedCategory]);
+
+  // Handle category selection
+  const handleCategorySelect = useCallback((categoryId: string) => {
+    setSelectedCategory(categoryId);
+    loadServices({ 
+      search: searchTerm, 
+      category: categoryId 
+    });
+  }, [searchTerm, loadServices]);
+
+  // Convert services to legacy format for ServiceCard compatibility
+  const legacyServices = services.map(convertServiceToLegacy);
+
+  // Client-side sorting (since API doesn't support all sort options)
+  const sortedServices = [...legacyServices].sort((a, b) => {
+    switch (sortBy) {
+      case 'price-low':
+        return a.price - b.price;
+      case 'price-high':
+        return b.price - a.price;
+      case 'rating':
+        return b.rating - a.rating;
+      case 'reviews':
+        return b.reviewCount - a.reviewCount;
+      default:
+        return 0;
+    }
+  });
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <div className="container mx-auto px-4 py-6 max-w-md">
-        {/* Header */}
-        <div className="bg-gradient-primary rounded-xl p-6 text-white mb-6">
-          <h1 className="text-xl font-bold mb-2">Browse Services</h1>
-          <p className="text-white/90">Find trusted local services in your area</p>
-        </div>
-
-        {/* Search Bar */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search services..."
-            value={searchTerm}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-
-        {/* Filters */}
-        <div className="flex gap-2 mb-6 overflow-x-auto">
-          <Button
-            variant={showFilters ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex-shrink-0"
-          >
-            <Filter className="h-4 w-4 mr-2" />
-            Filters
-          </Button>
+      {/* Header */}
+      <div className="bg-gradient-primary text-white p-4 pb-6">
+        <div className="container mx-auto max-w-md">
+          <h1 className="text-2xl font-bold mb-4">Find Services</h1>
           
-          {categories.map((category) => (
+          {/* Search */}
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/70" size={18} />
+            <Input 
+              placeholder="Search services..."
+              onChange={(e) => handleSearchInput(e.target.value)}
+              className={`pl-10 bg-white/20 border-white/30 text-white placeholder:text-white/70 focus:bg-white/30 ${
+                searchError ? 'border-red-300' : ''
+              }`}
+            />
+            {searchError && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-red-100 border border-red-300 rounded-lg p-2">
+                <p className="text-sm text-red-700 flex items-center gap-1">
+                  <AlertTriangle size={14} />
+                  {searchError}
+                </p>
+              </div>
+            )}
+          </div>
+          
+          {/* Filter Controls */}
+          <div className="flex items-center gap-3">
             <Button
-              key={category.id}
-              variant={selectedCategory === category.id ? 'default' : 'outline'}
+              variant="secondary"
               size="sm"
-              onClick={() => handleCategoryFilter(category.id)}
-              className="flex-shrink-0"
+              onClick={() => setShowFilters(!showFilters)}
+              className="bg-white/20 text-white border-white/30 hover:bg-white/30"
             >
-              {category.name}
+              <SlidersHorizontal size={16} className="mr-2" />
+              Filters
             </Button>
-          ))}
+            
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="bg-white/20 text-white border-white/30 w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="rating">Top Rated</SelectItem>
+                <SelectItem value="reviews">Most Reviews</SelectItem>
+                <SelectItem value="price-low">Price: Low</SelectItem>
+                <SelectItem value="price-high">Price: High</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
+      </div>
 
-        {/* Add Service Button (Providers only) */}
-        {user?.role === 'provider' && (
-          <Button className="w-full mb-6 h-12 gap-2">
-            <Plus className="h-5 w-5" />
-            Add New Service
-          </Button>
+      <div className="container mx-auto px-4 py-6 max-w-md space-y-6">
+        {/* Filters */}
+        {showFilters && (
+          <Card className="border-0 bg-card/50">
+            <CardContent className="p-4">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-medium mb-2">Category</h3>
+                  <Select value={selectedCategory} onValueChange={handleCategorySelect}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All categories</SelectItem>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setSelectedCategory('');
+                      setSearchTerm('');
+                      setSortBy('rating');
+                    }}
+                  >
+                    Clear All
+                  </Button>
+                  <Button 
+                    size="sm"
+                    onClick={() => setShowFilters(false)}
+                  >
+                    Apply
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
-        {/* Services List */}
-        <div className="space-y-4">
-          {services.length === 0 ? (
-            <Card>
-              <CardContent className="p-6 text-center">
-                <p className="text-muted-foreground">No services found</p>
+        {/* Quick Categories */}
+        <ServiceCategories 
+          categories={categories}
+          compact={false} 
+          onCategorySelect={handleCategorySelect}
+          isLoading={isLoading}
+        />
+
+        {/* Results Header */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">
+            {searchTerm || selectedCategory ? 'Search Results' : 'All Services'}
+          </h2>
+          <span className="text-sm text-muted-foreground">
+            {isLoading ? 'Loading...' : `${pagination.total} services found`}
+          </span>
+        </div>
+
+        {/* Services Grid */}
+        <div className="grid gap-4">
+          {isLoading ? (
+            <Card className="border-0 bg-muted/30">
+              <CardContent className="p-8 text-center">
+                <div className="text-muted-foreground">
+                  <Loader2 size={48} className="mx-auto mb-4 animate-spin" />
+                  <h3 className="text-lg font-medium mb-2">Loading services...</h3>
+                  <p className="text-sm">
+                    Please wait while we fetch the latest services for you.
+                  </p>
+                </div>
               </CardContent>
             </Card>
+          ) : sortedServices.length > 0 ? (
+                sortedServices.map((service) => (
+                  <ServiceCard
+                    key={service.id}
+                    service={service}
+                    compact={false}
+                    onSelect={(service) => {
+                      navigate(`/service/${service.id}`);
+                    }}
+                  />
+                ))
           ) : (
-            services.map((service) => (
-              <Card key={service.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex gap-4">
-                    {service.images[0] && (
-                      <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
-                        <img 
-                          src={service.images[0]} 
-                          alt={service.title}
-                          className="w-full h-full object-cover rounded-lg"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                            target.parentElement!.innerHTML = '🔧';
-                          }}
-                        />
-                      </div>
-                    )}
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <h3 className="font-medium truncate">{service.title}</h3>
-                          <p className="text-sm text-muted-foreground">{service.provider.name}</p>
-                        </div>
-                        <Badge variant="secondary" className="text-xs">
-                          {service.category.name}
-                        </Badge>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2">
-                        <div className="flex items-center gap-1">
-                          <Star className="h-3 w-3 fill-current text-yellow-400" />
-                          <span>{service.rating.toFixed(1)}</span>
-                          <span>({service.review_count})</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          <span className="truncate">{service.location}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <p className="font-medium text-primary">
-                          R{service.price}/{service.price_type === 'hourly' ? 'hour' : 'fixed'}
-                        </p>
-                        {user?.role === 'customer' && (
-                          <Button 
-                            size="sm" 
-                            onClick={() => handleRequestService(service.id)}
-                            className="h-7 text-xs"
-                          >
-                            Request
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
+            <Card className="border-0 bg-muted/30">
+              <CardContent className="p-8 text-center">
+                <div className="text-muted-foreground">
+                  <Search size={48} className="mx-auto mb-4 opacity-50" />
+                  <h3 className="text-lg font-medium mb-2">No services found</h3>
+                  <p className="text-sm">
+                    Try adjusting your search terms or filters to find what you're looking for.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </div>
       </div>
+
       <BottomNavigation />
     </div>
   );

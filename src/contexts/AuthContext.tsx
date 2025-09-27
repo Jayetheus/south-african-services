@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { apiService, User } from '@/services/api';
+import { apiClient } from '@/lib/api';
+import { User } from '@/types/service';
 
 export type UserRole = 'customer' | 'provider';
 
@@ -33,16 +34,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Check for stored authentication token
     const checkStoredAuth = () => {
       try {
-        const storedUser = localStorage.getItem('linklocal_user');
-        const token = localStorage.getItem('linklocal_token');
-        
+        const storedUser = localStorage.getItem('sa_services_user');
+        const token = localStorage.getItem('sa_services_token');
+
         if (storedUser && token) {
-          setUser(JSON.parse(storedUser));
+          const user = JSON.parse(storedUser);
+          setUser(user);
+          apiClient.setToken(token);
         }
       } catch (error) {
         console.error('Error checking stored auth:', error);
-        localStorage.removeItem('linklocal_user');
-        localStorage.removeItem('linklocal_token');
+        localStorage.removeItem('sa_services_user');
+        localStorage.removeItem('sa_services_token');
+        apiClient.clearToken();
       } finally {
         setIsLoading(false);
       }
@@ -53,16 +57,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string): Promise<void> => {
     setIsLoading(true);
-    
     try {
-      const response = await apiService.login(email, password);
+      const response = await apiClient.login(email, password);
       
-      localStorage.setItem('linklocal_user', JSON.stringify(response.user));
-      localStorage.setItem('linklocal_token', response.token);
-      
-      setUser(response.user);
+      if (response.success && response.data) {
+        const { token, user } = response.data;
+        
+        // Set token in API client
+        apiClient.setToken(token);
+        
+        // Store user data
+        localStorage.setItem('sa_services_user', JSON.stringify(user));
+        setUser(user);
+      } else {
+        throw new Error(response.message || 'Login failed');
+      }
     } catch (error) {
-      throw new Error('Login failed. Please check your credentials.');
+      console.error('Login error:', error);
+      throw new Error(error instanceof Error ? error.message : 'Login failed');
     } finally {
       setIsLoading(false);
     }
@@ -70,24 +82,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const register = async (name: string, email: string, password: string, role: UserRole): Promise<void> => {
     setIsLoading(true);
-    
     try {
-      const response = await apiService.register(name, email, password, role);
+      const response = await apiClient.register({
+        name,
+        email,
+        password,
+        role,
+        location: 'South Africa'
+      });
       
-      localStorage.setItem('linklocal_user', JSON.stringify(response.user));
-      localStorage.setItem('linklocal_token', response.token);
-      
-      setUser(response.user);
+      if (response.success && response.data) {
+        const { token, user } = response.data;
+        
+        // Set token in API client
+        apiClient.setToken(token);
+        
+        // Store user data
+        localStorage.setItem('sa_services_user', JSON.stringify(user));
+        setUser(user);
+      } else {
+        throw new Error(response.message || 'Registration failed');
+      }
     } catch (error) {
-      throw new Error('Registration failed. Please try again.');
+      console.error('Registration error:', error);
+      throw new Error(error instanceof Error ? error.message : 'Registration failed');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('linklocal_user');
-    localStorage.removeItem('linklocal_token');
+  const logout = (): void => {
+    localStorage.removeItem('sa_services_user');
+    apiClient.clearToken();
     setUser(null);
   };
 
