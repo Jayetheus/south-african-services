@@ -29,7 +29,9 @@ import {
   Calculator,
   DollarSign,
   PiggyBank,
-  Crown
+  Crown,
+  Plus,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import BottomNavigation from '@/components/layout/BottomNavigation';
@@ -387,54 +389,27 @@ const Profile: React.FC = () => {
           </Card>
         )}
 
-        {/* Business Tools */}
-        <Card className="border-0 bg-card/50">
-          <CardHeader>
-            <CardTitle className="text-lg">Business Tools</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start"
-              onClick={() => window.location.href = '/learning'}
-            >
-              <BookOpen size={16} className="mr-3" />
-              Learning Hub
-            </Button>
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start"
-              onClick={() => window.location.href = '/bookkeeping'}
-            >
-              <Calculator size={16} className="mr-3" />
-              Bookkeeping
-            </Button>
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start"
-              onClick={() => window.location.href = '/pricing'}
-            >
-              <DollarSign size={16} className="mr-3" />
-              Pricing Tools
-            </Button>
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start"
-              onClick={() => window.location.href = '/savings'}
-            >
-              <PiggyBank size={16} className="mr-3" />
-              Savings & Credit
-            </Button>
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start"
-              onClick={() => window.location.href = '/prime'}
-            >
-              <Crown size={16} className="mr-3" />
-              Prime Features
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Quick Access Info for Providers */}
+        {user?.role === 'provider' && (
+          <Card className="border-0 bg-card/50">
+            <CardHeader>
+              <CardTitle className="text-lg">Quick Access</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                <div className="w-10 h-10 bg-gradient-primary rounded-full flex items-center justify-center">
+                  <Plus size={20} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Use the floating button</p>
+                  <p className="text-xs text-muted-foreground">
+                    Access all your business tools instantly
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Settings */}
         <Card className="border-0 bg-card/50">

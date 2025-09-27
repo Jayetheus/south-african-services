@@ -118,13 +118,13 @@ const Auth: React.FC = () => {
       <div className="relative h-64 overflow-hidden">
         <img 
           src={heroImage} 
-          alt="South African Services" 
-          className="w-full h-full object-cover"
+          alt="Link Local Services" 
+          className="w-full h-full object-cover sticky"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
         
         <div className="absolute inset-0 flex flex-col justify-center items-center text-center px-4">
-          <h1 className="text-3xl font-bold text-white mb-2">SA Services</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">Link Local</h1>
           <p className="text-white/90 text-lg mb-4">Find trusted local service providers</p>
           
           <div className="flex items-center gap-4 text-white/80 text-sm">

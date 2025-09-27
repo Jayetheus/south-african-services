@@ -32,6 +32,11 @@ const QuickAccess: React.FC = () => {
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
+  // Only show for providers
+  if (!user || user.role !== 'provider') {
+    return null;
+  }
+
   const quickActions: QuickAction[] = [
     {
       id: 'learning',
@@ -76,6 +81,27 @@ const QuickAccess: React.FC = () => {
       icon: <Bell size={20} />,
       path: '/notifications',
       color: 'bg-red-500'
+    },
+    {
+      id: 'services',
+      name: 'My Services',
+      icon: <Zap size={20} />,
+      path: '/services',
+      color: 'bg-indigo-500'
+    },
+    {
+      id: 'requests',
+      name: 'Requests',
+      icon: <Bell size={20} />,
+      path: '/requests',
+      color: 'bg-teal-500'
+    },
+    {
+      id: 'profile',
+      name: 'Profile',
+      icon: <User size={20} />,
+      path: '/profile',
+      color: 'bg-gray-500'
     }
   ];
 
@@ -128,6 +154,14 @@ const QuickAccess: React.FC = () => {
             e.preventDefault();
             navigate('/savings');
             break;
+          case 'm':
+            e.preventDefault();
+            navigate('/prime');
+            break;
+          case 'n':
+            e.preventDefault();
+            navigate('/notifications');
+            break;
         }
       }
     };
@@ -145,7 +179,7 @@ const QuickAccess: React.FC = () => {
     <>
       {/* Touch gesture area */}
       <div
-        className="fixed left-0 top-0 w-4 h-full z-30"
+        className="fixed left-0 top-0 w-8 h-full z-30"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -153,19 +187,36 @@ const QuickAccess: React.FC = () => {
 
       {/* Floating Action Button */}
       <div className="fixed bottom-20 right-4 z-40">
-        <Button
-          onClick={() => setIsOpen(!isOpen)}
-          size="lg"
-          className="w-14 h-14 rounded-full bg-gradient-primary shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-        >
-          {isOpen ? <X size={24} /> : <Plus size={24} />}
-        </Button>
+        <div className="relative">
+          {/* Pulsing ring for new features */}
+          {!isOpen && (
+            <div className="absolute inset-0 rounded-full bg-blue-500 animate-ping opacity-20"></div>
+          )}
+          <Button
+            onClick={() => setIsOpen(!isOpen)}
+            size="lg"
+            className={`w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 relative z-10 ${
+              isOpen 
+                ? 'bg-red-500 hover:bg-red-600 rotate-45' 
+                : 'bg-gradient-primary hover:scale-105'
+            }`}
+          >
+            {isOpen ? <X size={24} /> : <Plus size={24} />}
+          </Button>
+        </div>
       </div>
 
       {/* Quick Actions Menu */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black/20 z-50 flex items-end justify-center p-4">
-          <div className="bg-white rounded-t-2xl p-6 w-full max-w-md animate-in slide-in-from-bottom duration-300">
+        <div 
+          className="fixed inset-0 bg-black/20 z-50 flex items-end justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsOpen(false);
+            }
+          }}
+        >
+          <div className="bg-white rounded-t-2xl p-6 w-full max-w-md animate-in slide-in-from-bottom duration-300 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold">Quick Access</h2>
               <Button
@@ -178,30 +229,30 @@ const QuickAccess: React.FC = () => {
               </Button>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-3">
               {quickActions.map((action) => (
                 <div
                   key={action.id}
                   onClick={() => handleActionClick(action.path)}
-                  className="flex flex-col items-center p-4 rounded-xl hover:bg-muted/50 cursor-pointer transition-colors group relative"
+                  className="flex flex-col items-center p-3 rounded-xl hover:bg-muted/50 cursor-pointer transition-all duration-200 group relative"
                 >
                   {action.isNew && (
-                    <Badge className="absolute -top-1 -right-1 text-xs bg-red-500">
+                    <Badge className="absolute -top-1 -right-1 text-xs bg-red-500 z-10">
                       New
                     </Badge>
                   )}
                   {action.isPremium && (
-                    <Badge className="absolute -top-1 -right-1 text-xs bg-yellow-500">
+                    <Badge className="absolute -top-1 -right-1 text-xs bg-yellow-500 z-10">
                       <Crown size={8} className="mr-1" />
                       Prime
                     </Badge>
                   )}
                   
-                  <div className={`w-12 h-12 ${action.color} rounded-full flex items-center justify-center text-white mb-2 group-hover:scale-110 transition-transform`}>
+                  <div className={`w-10 h-10 ${action.color} rounded-full flex items-center justify-center text-white mb-2 group-hover:scale-110 transition-transform duration-200 shadow-md`}>
                     {action.icon}
                   </div>
                   
-                  <span className="text-xs font-medium text-center group-hover:text-primary">
+                  <span className="text-xs font-medium text-center group-hover:text-primary transition-colors duration-200 leading-tight">
                     {action.name}
                   </span>
                 </div>
@@ -210,9 +261,19 @@ const QuickAccess: React.FC = () => {
 
             {/* Keyboard shortcut hint */}
             <div className="mt-6 p-3 bg-muted/30 rounded-lg">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Zap size={14} />
-                <span>Tip: Use Ctrl+K to open quick access</span>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Zap size={14} />
+                  <span>Keyboard shortcuts:</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
+                  <span>Ctrl+K: Toggle menu</span>
+                  <span>Ctrl+L: Learning</span>
+                  <span>Ctrl+B: Bookkeeping</span>
+                  <span>Ctrl+P: Pricing</span>
+                  <span>Ctrl+S: Savings</span>
+                  <span>Ctrl+M: Prime</span>
+                </div>
               </div>
             </div>
           </div>

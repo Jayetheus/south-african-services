@@ -22,8 +22,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import BottomNavigation from '@/components/layout/BottomNavigation';
 import { useToast } from '@/hooks/use-toast';
-import { DialogHeader } from '@/components/ui/dialog';
-import { Dialog, DialogContent, DialogTitle } from '@radix-ui/react-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface SavingsGoal {
   id: string;
