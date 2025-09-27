@@ -10,6 +10,7 @@ import { useAuth, UserRole } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useSecureForm } from '@/hooks/useSecureForm';
 import { loginFormSchema, registerFormSchema, loginRateLimiter, SecurityUtils, sanitizeText } from '@/lib/security';
+import { categorizeError } from '@/lib/api';
 import heroImage from '@/assets/hero-sa-services.jpg';
 
 const Auth: React.FC = () => {
@@ -46,14 +47,18 @@ const Auth: React.FC = () => {
           email: data.email
         });
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const { userMessage } = categorizeError(error instanceof Error ? error : new Error(errorMessage));
+        
         SecurityUtils.logSecurityEvent('LOGIN_FAILED', {
           email: data.email,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: errorMessage
         });
         
+        // Show specific error message to user
         toast({
           title: 'Login failed',
-          description: 'Please check your credentials and try again.',
+          description: userMessage,
           variant: 'destructive',
         });
         throw error; // Re-throw to trigger rate limiting
@@ -87,14 +92,18 @@ const Auth: React.FC = () => {
           role: data.role
         });
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const { userMessage } = categorizeError(error instanceof Error ? error : new Error(errorMessage));
+        
         SecurityUtils.logSecurityEvent('REGISTRATION_FAILED', {
           email: data.email,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: errorMessage
         });
         
+        // Show specific error message to user
         toast({
           title: 'Registration failed',
-          description: 'Please try again later.',
+          description: userMessage,
           variant: 'destructive',
         });
         throw error;

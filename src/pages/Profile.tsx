@@ -95,11 +95,23 @@ const Profile: React.FC = () => {
         }
       } catch (error) {
         console.error('Error loading profile:', error);
-        toast({
-          title: 'Error loading profile',
-          description: 'Failed to load profile data. Please try again.',
-          variant: 'destructive',
-        });
+        
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load profile data. Please try again.';
+        
+        // Check if it's a token expiration error
+        if (errorMessage.includes('session has expired') || errorMessage.includes('Invalid token')) {
+          toast({
+            title: 'Session Expired',
+            description: 'Your session has expired. Please log in again.',
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Error loading profile',
+            description: errorMessage,
+            variant: 'destructive',
+          });
+        }
       } finally {
         setIsLoading(false);
       }

@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { z } from 'zod';
 import { SecurityUtils } from '@/lib/security';
+import { categorizeError } from '@/lib/api';
 
 interface UseSecureFormOptions<T> {
   schema: z.ZodSchema<T>;
@@ -88,14 +89,17 @@ export function useSecureForm<T>({
           identifier
         });
       } else {
-        // Handle other errors
+        // Handle other errors - show the specific error message with categorization
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred. Please try again.';
+        const { userMessage } = categorizeError(error instanceof Error ? error : new Error(errorMessage));
+        
         setFormState(prev => ({
           ...prev,
-          errors: { submit: 'An error occurred. Please try again.' }
+          errors: { submit: userMessage }
         }));
         
         SecurityUtils.logSecurityEvent('FORM_SUBMIT_ERROR', {
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: errorMessage,
           identifier
         });
       }

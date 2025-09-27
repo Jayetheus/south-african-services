@@ -100,11 +100,23 @@ const ProviderDashboard: React.FC = () => {
         }
       } catch (error) {
         console.error('Error loading provider data:', error);
-        toast({
-          title: 'Error loading data',
-          description: 'Failed to load your dashboard data. Please try again.',
-          variant: 'destructive',
-        });
+        
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load your dashboard data. Please try again.';
+        
+        // Check if it's a token expiration error
+        if (errorMessage.includes('session has expired') || errorMessage.includes('Invalid token')) {
+          toast({
+            title: 'Session Expired',
+            description: 'Your session has expired. Please log in again.',
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Error loading data',
+            description: errorMessage,
+            variant: 'destructive',
+          });
+        }
       } finally {
         setIsLoading(false);
       }

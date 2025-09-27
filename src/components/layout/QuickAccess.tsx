@@ -10,7 +10,8 @@ import {
   Crown,
   Bell,
   X,
-  Zap
+  Zap,
+  User
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -31,11 +32,6 @@ const QuickAccess: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
-
-  // Only show for providers
-  if (!user || user.role !== 'provider') {
-    return null;
-  }
 
   const quickActions: QuickAction[] = [
     {
@@ -174,6 +170,11 @@ const QuickAccess: React.FC = () => {
     navigate(path);
     setIsOpen(false);
   };
+
+  // Only show for providers
+  if (!user || user.role !== 'provider') {
+    return null;
+  }
 
   return (
     <>

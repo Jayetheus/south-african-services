@@ -31,28 +31,56 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored authentication token
+    // Check for stored authentication tokens
     const checkStoredAuth = () => {
       try {
         const storedUser = localStorage.getItem('sa_services_user');
-        const token = localStorage.getItem('sa_services_token');
+        const accessToken = apiClient.getAccessToken();
+        const refreshToken = apiClient.getRefreshToken();
 
-        if (storedUser && token) {
+
+        console.log(storedUser, accessToken, refreshToken)
+        if (storedUser && accessToken && refreshToken) {
           const user = JSON.parse(storedUser);
           setUser(user);
-          apiClient.setToken(token);
+          
+          // Check if access token is still valid
+          if (apiClient.isTokenValid()) {
+            // Token is valid, user is authenticated
+            return;
+          } else if (!apiClient.isTokenExpiringSoon(0)) {
+            // Access token is expired but refresh token might still be valid
+            // The API client will handle refresh automatically on next request
+            return;
+          } else {
+            // Both tokens are invalid, clear everything
+            localStorage.removeItem('sa_services_user');
+            apiClient.clearTokens();
+          }
         }
       } catch (error) {
         console.error('Error checking stored auth:', error);
         localStorage.removeItem('sa_services_user');
-        localStorage.removeItem('sa_services_token');
-        apiClient.clearToken();
+        apiClient.clearTokens();
       } finally {
         setIsLoading(false);
       }
     };
 
+    // Handle token expiration
+    const handleTokenExpiration = () => {
+      setUser(null);
+      setIsLoading(false);
+    };
+
     checkStoredAuth();
+
+    // Listen for token expiration events
+    window.addEventListener('tokenExpired', handleTokenExpiration);
+
+    return () => {
+      window.removeEventListener('tokenExpired', handleTokenExpiration);
+    };
   }, []);
 
   const login = async (email: string, password: string): Promise<void> => {
@@ -61,20 +89,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await apiClient.login(email, password);
       
       if (response.success && response.data) {
-        const { token, user } = response.data;
+        const { access_token, refresh_token, expires_in, user } = response.data;
         
-        // Set token in API client
-        apiClient.setToken(token);
+        // Set tokens in API client
+        apiClient.setTokens(access_token, refresh_token, expires_in);
         
         // Store user data
         localStorage.setItem('sa_services_user', JSON.stringify(user));
         setUser(user);
       } else {
-        throw new Error(response.message || 'Login failed');
+        // Use the specific error message from the API response
+        const errorMessage = response.message || response.error || 'Login failed';
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error('Login error:', error);
-      throw new Error(error instanceof Error ? error.message : 'Login failed');
+      // Pass through the specific error message from the API
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -92,20 +123,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
       
       if (response.success && response.data) {
-        const { token, user } = response.data;
+        const { access_token, refresh_token, expires_in, user } = response.data;
         
-        // Set token in API client
-        apiClient.setToken(token);
+        // Set tokens in API client
+        apiClient.setTokens(access_token, refresh_token, expires_in);
         
         // Store user data
         localStorage.setItem('sa_services_user', JSON.stringify(user));
         setUser(user);
       } else {
-        throw new Error(response.message || 'Registration failed');
+        // Use the specific error message from the API response
+        const errorMessage = response.message || response.error || 'Registration failed';
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error('Registration error:', error);
-      throw new Error(error instanceof Error ? error.message : 'Registration failed');
+      // Pass through the specific error message from the API
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -113,7 +147,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = (): void => {
     localStorage.removeItem('sa_services_user');
-    apiClient.clearToken();
+    apiClient.clearTokens();
     setUser(null);
   };
 
