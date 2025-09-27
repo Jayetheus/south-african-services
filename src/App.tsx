@@ -6,6 +6,9 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import Services from "./pages/Services";
+import Requests from "./pages/Requests";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,23 +59,17 @@ const AppRoutes = () => {
       } />
       <Route path="/services" element={
         <ProtectedRoute>
-          <div className="min-h-screen flex items-center justify-center">
-            <p>Services page coming soon...</p>
-          </div>
+          <Services />
         </ProtectedRoute>
       } />
       <Route path="/requests" element={
         <ProtectedRoute>
-          <div className="min-h-screen flex items-center justify-center">
-            <p>Requests page coming soon...</p>
-          </div>
+          <Requests />
         </ProtectedRoute>
       } />
       <Route path="/profile" element={
         <ProtectedRoute>
-          <div className="min-h-screen flex items-center justify-center">
-            <p>Profile page coming soon...</p>
-          </div>
+          <Profile />
         </ProtectedRoute>
       } />
       <Route path="*" element={<NotFound />} />

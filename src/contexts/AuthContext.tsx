@@ -1,16 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { apiService, User } from '@/services/api';
 
 export type UserRole = 'customer' | 'provider';
-
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  avatar?: string;
-  location?: string;
-  joinedAt: string;
-}
 
 interface AuthContextType {
   user: User | null;
@@ -64,25 +55,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(true);
     
     try {
-      // Mock API call - replace with actual API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await apiService.login(email, password);
       
-      // Mock user data
-      const mockUser: User = {
-        id: Math.random().toString(36).substr(2, 9),
-        name: email.split('@')[0].replace(/[^a-zA-Z]/g, ''),
-        email,
-        role: email.includes('provider') ? 'provider' : 'customer',
-        joinedAt: new Date().toISOString(),
-        location: 'Cape Town, South Africa'
-      };
-
-      const mockToken = 'mock_jwt_token_' + Math.random().toString(36);
+      localStorage.setItem('linklocal_user', JSON.stringify(response.user));
+      localStorage.setItem('linklocal_token', response.token);
       
-      localStorage.setItem('linklocal_user', JSON.stringify(mockUser));
-      localStorage.setItem('linklocal_token', mockToken);
-      
-      setUser(mockUser);
+      setUser(response.user);
     } catch (error) {
       throw new Error('Login failed. Please check your credentials.');
     } finally {
@@ -94,24 +72,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(true);
     
     try {
-      // Mock API call - replace with actual API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await apiService.register(name, email, password, role);
       
-      const mockUser: User = {
-        id: Math.random().toString(36).substr(2, 9),
-        name,
-        email,
-        role,
-        joinedAt: new Date().toISOString(),
-        location: 'Cape Town, South Africa'
-      };
-
-      const mockToken = 'mock_jwt_token_' + Math.random().toString(36);
+      localStorage.setItem('linklocal_user', JSON.stringify(response.user));
+      localStorage.setItem('linklocal_token', response.token);
       
-      localStorage.setItem('linklocal_user', JSON.stringify(mockUser));
-      localStorage.setItem('linklocal_token', mockToken);
-      
-      setUser(mockUser);
+      setUser(response.user);
     } catch (error) {
       throw new Error('Registration failed. Please try again.');
     } finally {
