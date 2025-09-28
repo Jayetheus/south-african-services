@@ -182,7 +182,7 @@ const mockDemoUser: User = {
   id: 'user-123',
   name: 'John Demo',
   email: 'demo@linklocal.co.za',
-  role: 'customer',
+  role: 'provider',
   phone: '+27123456789',
   location: 'Cape Town, South Africa',
   rating: 4.5,
