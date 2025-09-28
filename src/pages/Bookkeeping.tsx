@@ -207,7 +207,7 @@ const Bookkeeping: React.FC = () => {
         amount: totalAmount,
         dueDate: invoiceData.dueDate,
         status: 'draft',
-        items: invoiceData.items,
+        items: invoiceData.items.map((item, index) => ({ ...item, id: `${Date.now()}-${index}` })),
         createdAt: new Date().toISOString().split('T')[0]
       };
 

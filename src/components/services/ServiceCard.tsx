@@ -48,12 +48,12 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
         ) : (
           <div className="w-full h-full bg-gradient-primary flex items-center justify-center">
             <span className="text-white font-medium text-sm">
-              {service.category}
+              {typeof service.category === 'string' ? service.category : service.category.name}
             </span>
           </div>
         )}
         
-        {service.verified && (
+        {service.provider?.rating > 4.5 && (
           <div className="absolute top-2 right-2">
             <Badge variant="secondary" className="bg-white/90 text-xs">
               <Shield size={12} className="mr-1" />
@@ -65,14 +65,9 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
         <div className="absolute bottom-2 left-2">
           <Badge 
             variant="secondary" 
-            className={cn(
-              "text-xs font-medium",
-              service.availability === 'available' 
-                ? "bg-green-500/90 text-white" 
-                : "bg-orange-500/90 text-white"
-            )}
+            className="text-xs font-medium bg-green-500/90 text-white"
           >
-            {service.availability === 'available' ? 'Available' : 'Busy'}
+            Available
           </Badge>
         </div>
       </div>
@@ -107,7 +102,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
                 "text-muted-foreground",
                 compact ? "text-xs" : "text-sm"
               )}>
-                ({service.reviewCount})
+                ({service.review_count})
               </span>
             </div>
           </div>
@@ -117,7 +112,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
               "font-bold text-primary",
               compact ? "text-sm" : "text-base"
             )}>
-              {formatPrice(service.price, service.priceType)}
+              {formatPrice(service.price, service.price_type)}
             </div>
           </div>
         </div>
@@ -129,7 +124,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
           </div>
           <div className="flex items-center gap-1">
             <Clock size={12} />
-            <span>{service.responseTime}</span>
+            <span>2h response</span>
           </div>
         </div>
 

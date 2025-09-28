@@ -4,8 +4,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { DemoProvider, useDemoMode } from "@/contexts/DemoContext";
 import { SecurityProvider } from "@/components/security/SecurityProvider";
 import QuickAccess from "@/components/layout/QuickAccess";
+import DemoButton from "@/components/demo/DemoButton";
+import { setDemoMode } from "@/services/api";
+import React from "react";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Services from "./pages/Services";
@@ -59,8 +63,16 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppRoutes = () => {
+  const { isDemoMode, demoServices, demoRequests } = useDemoMode();
+  
+  // Update API demo mode whenever context changes
+  React.useEffect(() => {
+    setDemoMode(isDemoMode, demoServices, demoRequests);
+  }, [isDemoMode, demoServices, demoRequests]);
+  
   return (
     <>
+      <DemoButton />
       <QuickAccess />
       <Routes>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -146,11 +158,13 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <AuthProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </AuthProvider>
+        <DemoProvider>
+          <AuthProvider>
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </AuthProvider>
+        </DemoProvider>
       </TooltipProvider>
     </SecurityProvider>
   </QueryClientProvider>

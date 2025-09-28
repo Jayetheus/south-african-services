@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { apiClient } from '@/lib/api';
 import { User } from '@/types/service';
+import { useDemoMode } from '@/contexts/DemoContext';
 
 export type UserRole = 'customer' | 'provider';
 
@@ -29,6 +30,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { isDemoMode, demoUser } = useDemoMode();
 
   useEffect(() => {
     // Check for stored authentication tokens
@@ -152,7 +154,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const value: AuthContextType = {
-    user,
+    user: isDemoMode ? demoUser : user,
     isLoading,
     login,
     register,
