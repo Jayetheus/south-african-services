@@ -11,7 +11,7 @@ import ServiceCard from '@/components/services/ServiceCard';
 import { Service, ServiceCategory } from '@/types/service';
 import { searchQuerySchema, searchRateLimiter, SecurityUtils, sanitizeText } from '@/lib/security';
 import { useToast } from '@/hooks/use-toast';
-import { apiClient } from '@/lib/api';
+import { api } from '@/services/api';
 
 // Helper function to convert API service to legacy format for ServiceCard compatibility
 const convertServiceToLegacy = (service: Service): any => ({
@@ -61,18 +61,13 @@ const Services: React.FC = () => {
         
         // Load services and categories in parallel
         const [servicesResponse, categoriesResponse] = await Promise.all([
-          apiClient.getServices({ page: 1, limit: 20 }),
-          apiClient.getCategories()
+          api.getServices({ page: 1, limit: 20 }),
+          api.getCategories()
         ]);
 
-        if (servicesResponse.success && servicesResponse.data) {
-          setServices(servicesResponse.data.data);
-          setPagination(servicesResponse.data.pagination);
-        }
-
-        if (categoriesResponse.success && categoriesResponse.data) {
-          setCategories(categoriesResponse.data);
-        }
+        setServices(servicesResponse.services);
+        setPagination(servicesResponse.pagination);
+        setCategories(categoriesResponse);
       } catch (error) {
         console.error('Error loading data:', error);
         toast({
@@ -111,12 +106,10 @@ const Services: React.FC = () => {
         params.category = filters.category;
       }
 
-      const response = await apiClient.getServices(params);
-
-      if (response.success && response.data) {
-        setServices(response.data.data);
-        setPagination(response.data.pagination);
-      }
+      const response = await api.getServices(params);
+      
+      setServices(response.services);
+      setPagination(response.pagination);
     } catch (error) {
       console.error('Error loading services:', error);
       toast({
