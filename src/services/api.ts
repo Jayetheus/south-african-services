@@ -50,6 +50,26 @@ export interface RegisterResponse {
 export const api = {
   // Authentication
   login: async (email: string, password: string): Promise<LoginResponse> => {
+    if (isDemoMode) {
+      // Return mock login response for demo
+      return {
+        token: 'demo-token-123',
+        user: {
+          id: 'user-123',
+          name: 'John Demo',
+          email: 'demo@linklocal.co.za',
+          role: 'customer',
+          phone: '+27123456789',
+          location: 'Cape Town, South Africa',
+          rating: 4.5,
+          is_verified: true,
+          is_active: true,
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z'
+        }
+      };
+    }
+    
     const response = await apiClient.post<ApiResponse<LoginResponse>>('/auth/login', {
       email,
       password,
@@ -71,6 +91,26 @@ export const api = {
     phone?: string;
     location?: string;
   }): Promise<RegisterResponse> => {
+    if (isDemoMode) {
+      // Return mock register response for demo
+      return {
+        token: 'demo-token-123',
+        user: {
+          id: 'user-123',
+          name: userData.name,
+          email: userData.email,
+          role: userData.role,
+          phone: userData.phone,
+          location: userData.location || 'South Africa',
+          rating: 0,
+          is_verified: false,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      };
+    }
+    
     const response = await apiClient.post<ApiResponse<RegisterResponse>>('/auth/register', userData);
     
     if (response.data.success && response.data.data) {
@@ -150,6 +190,50 @@ export const api = {
     price_type: 'hourly' | 'fixed' | 'negotiable';
     images?: string[];
   }): Promise<Service> => {
+    if (isDemoMode) {
+      // Return mock created service for demo
+      const newService: Service = {
+        id: `service-${Date.now()}`,
+        title: serviceData.title,
+        description: serviceData.description,
+        category: {
+          id: serviceData.category,
+          name: 'Demo Category',
+          icon: 'home',
+          color: '#2E8B57',
+          description: 'Demo category',
+          is_active: true,
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z'
+        },
+        provider: {
+          id: 'user-123',
+          name: 'John Demo',
+          email: 'demo@linklocal.co.za',
+          role: 'provider',
+          location: 'Cape Town, South Africa',
+          rating: 4.5,
+          is_verified: true,
+          is_active: true,
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z'
+        },
+        location: serviceData.location,
+        price: serviceData.price,
+        price_type: serviceData.price_type,
+        images: serviceData.images || [],
+        rating: 0,
+        review_count: 0,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      // Add to demo services
+      demoServices.push(newService);
+      return newService;
+    }
+    
     const response = await apiClient.post<ApiResponse<Service>>('/services', serviceData);
     
     if (response.data.success && response.data.data) {
@@ -200,6 +284,43 @@ export const api = {
     requested_date: string;
     estimated_duration: number;
   }): Promise<ServiceRequest> => {
+    if (isDemoMode) {
+      // Find the service from demo data
+      const service = demoServices.find(s => s.id === requestData.service_id);
+      if (!service) throw new Error('Service not found');
+      
+      const newRequest: ServiceRequest = {
+        id: `request-${Date.now()}`,
+        service: {
+          id: service.id,
+          title: service.title,
+          price: service.price,
+          provider: {
+            id: service.provider.id,
+            name: service.provider.name
+          }
+        },
+        customer: {
+          id: 'user-123',
+          name: 'John Demo'
+        },
+        provider: {
+          id: service.provider.id,
+          name: service.provider.name
+        },
+        status: 'pending',
+        message: requestData.message,
+        requested_date: requestData.requested_date,
+        estimated_duration: requestData.estimated_duration,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      // Add to demo requests
+      demoRequests.push(newRequest);
+      return newRequest;
+    }
+    
     const response = await apiClient.post<ApiResponse<ServiceRequest>>('/requests', requestData);
     
     if (response.data.success && response.data.data) {
@@ -210,6 +331,20 @@ export const api = {
   },
 
   updateRequestStatus: async (id: string, status: string): Promise<ServiceRequest> => {
+    if (isDemoMode) {
+      // Find and update request in demo data
+      const requestIndex = demoRequests.findIndex(r => r.id === id);
+      if (requestIndex === -1) throw new Error('Request not found');
+      
+      demoRequests[requestIndex] = {
+        ...demoRequests[requestIndex],
+        status: status as any,
+        updated_at: new Date().toISOString()
+      };
+      
+      return demoRequests[requestIndex];
+    }
+    
     const response = await apiClient.patch<ApiResponse<ServiceRequest>>(`/requests/${id}`, { status });
     
     if (response.data.success && response.data.data) {
@@ -257,6 +392,22 @@ export const api = {
 
   // Profile
   getProfile: async (): Promise<User> => {
+    if (isDemoMode) {
+      return {
+        id: 'user-123',
+        name: 'John Demo',
+        email: 'demo@linklocal.co.za',
+        role: 'customer',
+        phone: '+27123456789',
+        location: 'Cape Town, South Africa',
+        rating: 4.5,
+        is_verified: true,
+        is_active: true,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z'
+      };
+    }
+    
     const response = await apiClient.get<ApiResponse<User>>('/profile');
     
     if (response.data.success && response.data.data) {
@@ -271,6 +422,23 @@ export const api = {
     phone?: string;
     location?: string;
   }): Promise<User> => {
+    if (isDemoMode) {
+      // Return updated demo user
+      return {
+        id: 'user-123',
+        name: profileData.name || 'John Demo',
+        email: 'demo@linklocal.co.za',
+        role: 'customer',
+        phone: profileData.phone || '+27123456789',
+        location: profileData.location || 'Cape Town, South Africa',
+        rating: 4.5,
+        is_verified: true,
+        is_active: true,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: new Date().toISOString()
+      };
+    }
+    
     const response = await apiClient.patch<ApiResponse<User>>('/profile', profileData);
     
     if (response.data.success && response.data.data) {
@@ -286,6 +454,21 @@ export const api = {
     rating: number;
     comment: string;
   }): Promise<any> => {
+    if (isDemoMode) {
+      // Return mock feedback submission
+      return {
+        id: `feedback-${Date.now()}`,
+        service_request_id: feedbackData.service_request_id,
+        customer: {
+          id: 'user-123',
+          name: 'John Demo'
+        },
+        rating: feedbackData.rating,
+        comment: feedbackData.comment,
+        created_at: new Date().toISOString()
+      };
+    }
+    
     const response = await apiClient.post<ApiResponse<any>>('/feedback', feedbackData);
     
     if (response.data.success && response.data.data) {
